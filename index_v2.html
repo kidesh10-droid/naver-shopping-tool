@@ -1,0 +1,525 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>네이버 쇼핑 분석 툴</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700&display=swap');
+  :root {
+    --green: #03C75A; --green-dark: #02a34a; --green-light: #e8f9ef;
+    --red: #D84315; --blue: #1976D2; --blue-light: #e3f2fd;
+    --bg: #f5f6f8; --card: #ffffff; --border: #e2e5ea;
+    --text: #1a1a2e; --text2: #6b7280; --text3: #9ca3af;
+    --gold: #F59E0B; --silver: #94A3B8; --bronze: #B45309;
+    --radius: 12px; --radius-sm: 8px;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Noto Sans KR', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; padding: 24px 16px; }
+  .container { max-width: 900px; margin: 0 auto; }
+
+  .header { display: flex; align-items: center; gap: 12px; margin-bottom: 24px; }
+  .logo { width: 42px; height: 42px; background: var(--green); border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 22px; }
+  .header-text h1 { font-size: 20px; font-weight: 700; }
+  .header-text p { font-size: 13px; color: var(--text2); margin-top: 2px; }
+
+  /* 탭 */
+  .tabs { display: flex; gap: 4px; margin-bottom: 16px; background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 4px; }
+  .tab { flex: 1; padding: 10px; text-align: center; font-size: 14px; font-weight: 500; border-radius: var(--radius-sm); cursor: pointer; color: var(--text2); transition: all 0.2s; border: none; background: none; font-family: 'Noto Sans KR', sans-serif; }
+  .tab.active { background: var(--green); color: #fff; }
+  .tab-content { display: none; }
+  .tab-content.active { display: block; }
+
+  /* 공통 카드 */
+  .card { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px; margin-bottom: 16px; }
+
+  /* 입력 */
+  .input-row { display: flex; gap: 8px; margin-bottom: 10px; }
+  .input-wrap { flex: 1; display: flex; flex-direction: column; gap: 4px; }
+  .input-label { font-size: 12px; color: var(--text2); font-weight: 500; }
+  .main-input { width: 100%; height: 42px; border: 1.5px solid var(--border); border-radius: var(--radius-sm); padding: 0 14px; font-size: 14px; font-family: 'Noto Sans KR', sans-serif; color: var(--text); background: #fafafa; outline: none; transition: border-color 0.2s; }
+  .main-input:focus { border-color: var(--green); background: #fff; }
+  .main-input::placeholder { color: var(--text3); }
+
+  .opts-row { display: flex; gap: 12px; align-items: flex-end; flex-wrap: wrap; }
+  .opt-wrap { display: flex; flex-direction: column; gap: 4px; }
+  .opt-label { font-size: 12px; color: var(--text2); font-weight: 500; }
+  .opt-select { height: 38px; border: 1.5px solid var(--border); border-radius: var(--radius-sm); padding: 0 10px; font-size: 13px; font-family: 'Noto Sans KR', sans-serif; color: var(--text); background: #fafafa; outline: none; cursor: pointer; min-width: 110px; }
+
+  .btn { height: 38px; padding: 0 24px; border: none; border-radius: var(--radius-sm); font-size: 14px; font-weight: 700; font-family: 'Noto Sans KR', sans-serif; cursor: pointer; transition: background 0.2s; white-space: nowrap; align-self: flex-end; }
+  .btn-green { background: var(--green); color: #fff; }
+  .btn-green:hover { background: var(--green-dark); }
+  .btn-blue { background: var(--blue); color: #fff; }
+  .btn-blue:hover { background: #1565C0; }
+  .btn:disabled { background: var(--border); color: var(--text3); cursor: not-allowed; }
+
+  /* 에러 */
+  .error-box { background: #fef2f2; border: 1px solid #fecaca; border-radius: var(--radius); padding: 14px 18px; font-size: 13px; color: #b91c1c; margin-bottom: 16px; display: none; }
+  .error-box.active { display: block; }
+
+  /* 프로그레스 */
+  .progress-wrap { display: none; background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px; margin-bottom: 16px; }
+  .progress-wrap.active { display: block; }
+  .progress-header { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; }
+  .spinner { width: 18px; height: 18px; border: 2.5px solid var(--green-light); border-top-color: var(--green); border-radius: 50%; animation: spin 0.8s linear infinite; flex-shrink: 0; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .progress-text { font-size: 14px; font-weight: 500; }
+  .progress-sub { font-size: 12px; color: var(--text2); margin-top: 2px; }
+  .progress-bar-wrap { background: var(--bg); border-radius: 4px; height: 6px; overflow: hidden; }
+  .progress-bar { height: 100%; background: var(--green); border-radius: 4px; transition: width 0.4s ease; width: 0%; }
+  .progress-steps { display: flex; gap: 6px; margin-top: 10px; flex-wrap: wrap; }
+  .step-chip { font-size: 11px; padding: 2px 8px; border-radius: 20px; background: var(--bg); color: var(--text3); border: 1px solid var(--border); }
+  .step-chip.done { background: var(--green-light); color: #0a6b2e; border-color: #a7f0c5; }
+  .step-chip.active { background: var(--green); color: #fff; border-color: var(--green); }
+
+  /* 순위 결과 */
+  .result-wrap { display: none; }
+  .result-wrap.active { display: block; }
+  .result-summary { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; margin-bottom: 16px; }
+  .summary-head { padding: 14px 18px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px; background: #fafafa; }
+  .summary-kw { font-size: 13px; color: var(--text2); }
+  .summary-kw strong { color: var(--text); font-weight: 700; }
+  .rank-badge { display: inline-flex; align-items: center; padding: 4px 14px; border-radius: 20px; font-size: 14px; font-weight: 700; }
+  .rank-badge.hit { background: var(--green-light); color: #0a6b2e; }
+  .rank-badge.miss { background: #fef2f2; color: #b91c1c; }
+  .summary-body { padding: 18px; display: flex; align-items: center; gap: 18px; }
+  .big-num { font-size: 52px; font-weight: 700; color: var(--green); line-height: 1; min-width: 80px; text-align: center; }
+  .big-num.na { font-size: 28px; color: var(--text3); }
+  .big-num-sub { font-size: 13px; color: var(--text2); text-align: center; margin-top: 4px; }
+  .prod-detail { flex: 1; }
+  .prod-name-big { font-size: 15px; font-weight: 700; line-height: 1.5; margin-bottom: 8px; }
+  .prod-tags { display: flex; flex-wrap: wrap; gap: 8px; }
+  .prod-tag { font-size: 12px; padding: 3px 10px; border-radius: 6px; background: var(--bg); color: var(--text2); border: 1px solid var(--border); }
+  .prod-tag.price { color: var(--red); background: #fff5f0; border-color: #fcd9c5; font-weight: 700; }
+  .no-result-body { padding: 24px; text-align: center; }
+  .no-result-icon { font-size: 32px; margin-bottom: 8px; }
+  .no-result-title { font-size: 15px; font-weight: 700; margin-bottom: 4px; }
+  .no-result-desc { font-size: 13px; color: var(--text2); }
+
+  .top-list-section { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; margin-bottom: 16px; }
+  .section-head { padding: 12px 18px; border-bottom: 1px solid var(--border); background: #fafafa; display: flex; align-items: center; justify-content: space-between; }
+  .section-title { font-size: 14px; font-weight: 700; }
+  .section-sub { font-size: 12px; color: var(--text2); }
+  .top-table { width: 100%; border-collapse: collapse; }
+  .top-table th { font-size: 11px; color: var(--text3); font-weight: 500; padding: 8px 18px; text-align: left; border-bottom: 1px solid var(--border); background: #fafafa; }
+  .top-table td { padding: 10px 18px; font-size: 13px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+  .top-table tr:last-child td { border-bottom: none; }
+  .top-table tr.my-row td { background: #f0fdf6; }
+  .rank-num { font-weight: 700; font-size: 14px; }
+  .rank-num.r1 { color: var(--gold); }
+  .rank-num.r2 { color: var(--silver); }
+  .rank-num.r3 { color: var(--bronze); }
+  .rank-num.me { color: var(--green); }
+  .me-label { display: inline-block; font-size: 10px; padding: 1px 6px; background: var(--green); color: #fff; border-radius: 4px; margin-left: 6px; font-weight: 700; }
+  .price-cell { font-size: 13px; font-weight: 700; color: var(--red); white-space: nowrap; }
+  .result-footer { text-align: center; font-size: 12px; color: var(--text3); padding: 8px 0 16px; }
+
+  /* 트렌드 결과 */
+  .trend-result { display: none; }
+  .trend-result.active { display: block; }
+
+  .stats-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 16px; }
+  .stat-card { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px; text-align: center; }
+  .stat-label { font-size: 12px; color: var(--text2); margin-bottom: 6px; }
+  .stat-value { font-size: 24px; font-weight: 700; color: var(--text); }
+  .stat-value.green { color: var(--green); }
+  .stat-value.blue { color: var(--blue); }
+  .stat-sub { font-size: 11px; color: var(--text3); margin-top: 4px; }
+
+  .chart-card { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px; margin-bottom: 16px; }
+  .chart-title { font-size: 14px; font-weight: 700; margin-bottom: 16px; }
+  .chart-wrap { position: relative; height: 260px; }
+
+  .keyword-table-wrap { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; margin-bottom: 16px; }
+  .kw-table { width: 100%; border-collapse: collapse; }
+  .kw-table th { font-size: 11px; color: var(--text3); font-weight: 500; padding: 8px 18px; text-align: left; border-bottom: 1px solid var(--border); background: #fafafa; }
+  .kw-table td { padding: 10px 18px; font-size: 13px; border-bottom: 1px solid var(--border); }
+  .kw-table tr:last-child td { border-bottom: none; }
+  .kw-table tr:hover td { background: #f9fafb; }
+  .comp-bar { display: flex; align-items: center; gap: 8px; }
+  .comp-bar-inner { height: 6px; border-radius: 3px; background: var(--green); }
+  .comp-label { font-size: 11px; color: var(--text2); white-space: nowrap; }
+
+  @media (max-width: 580px) {
+    .input-row { flex-direction: column; }
+    .stats-grid { grid-template-columns: 1fr 1fr; }
+    .summary-body { flex-direction: column; text-align: center; }
+  }
+</style>
+</head>
+<body>
+<div class="container">
+
+  <div class="header">
+    <div class="logo">📊</div>
+    <div class="header-text">
+      <h1>네이버 쇼핑 분석 툴</h1>
+      <p>순위 확인 · 검색량 트렌드 · 키워드 분석</p>
+    </div>
+  </div>
+
+  <!-- 탭 -->
+  <div class="tabs">
+    <button class="tab active" onclick="switchTab('rank')">🏆 순위 확인</button>
+    <button class="tab" onclick="switchTab('trend')">📈 검색량 트렌드</button>
+  </div>
+
+  <!-- 순위 확인 탭 -->
+  <div class="tab-content active" id="tab-rank">
+    <div class="card">
+      <div style="display:flex;flex-direction:column;gap:10px;">
+        <div class="input-row">
+          <div class="input-wrap">
+            <span class="input-label">검색 키워드</span>
+            <input class="main-input" type="text" id="keyword" placeholder="예: 블루투스 이어폰" />
+          </div>
+          <div class="input-wrap">
+            <span class="input-label">내 상품명 (일부 입력 가능)</span>
+            <input class="main-input" type="text" id="productName" placeholder="예: SoundPEATS T3 Pro" />
+          </div>
+        </div>
+        <div class="opts-row">
+          <div class="opt-wrap">
+            <span class="opt-label">조회 범위</span>
+            <select class="opt-select" id="maxRank">
+              <option value="100">100위</option>
+              <option value="300">300위</option>
+              <option value="500">500위</option>
+              <option value="1000" selected>1000위</option>
+            </select>
+          </div>
+          <div class="opt-wrap">
+            <span class="opt-label">정렬</span>
+            <select class="opt-select" id="sortBy">
+              <option value="sim" selected>관련도순</option>
+              <option value="date">최신순</option>
+              <option value="asc">낮은가격순</option>
+              <option value="dsc">높은가격순</option>
+            </select>
+          </div>
+          <div class="opt-wrap">
+            <span class="opt-label">상품 유형</span>
+            <select class="opt-select" id="filterType">
+              <option value="">전체</option>
+              <option value="national">국내</option>
+              <option value="foreign">해외</option>
+            </select>
+          </div>
+          <button class="btn btn-green" id="btnRank" onclick="startRankSearch()">순위 확인</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="error-box" id="rankError"></div>
+    <div class="progress-wrap" id="rankProgress">
+      <div class="progress-header">
+        <div class="spinner"></div>
+        <div>
+          <div class="progress-text" id="progressText">검색 중...</div>
+          <div class="progress-sub" id="progressSub"></div>
+        </div>
+      </div>
+      <div class="progress-bar-wrap"><div class="progress-bar" id="progressBar"></div></div>
+      <div class="progress-steps" id="progressSteps"></div>
+    </div>
+    <div class="result-wrap" id="rankResult">
+      <div class="result-summary" id="resultSummary"></div>
+      <div class="top-list-section" id="topListSection"></div>
+      <div class="result-footer" id="resultFooter"></div>
+    </div>
+  </div>
+
+  <!-- 트렌드 탭 -->
+  <div class="tab-content" id="tab-trend">
+    <div class="card">
+      <div style="display:flex;flex-direction:column;gap:10px;">
+        <div class="input-row">
+          <div class="input-wrap">
+            <span class="input-label">분석할 키워드</span>
+            <input class="main-input" type="text" id="trendKeyword" placeholder="예: 블루투스 이어폰" />
+          </div>
+        </div>
+        <div class="opts-row">
+          <button class="btn btn-blue" id="btnTrend" onclick="startTrendSearch()">검색량 분석</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="error-box" id="trendError"></div>
+    <div class="progress-wrap" id="trendProgress">
+      <div class="progress-header">
+        <div class="spinner"></div>
+        <div>
+          <div class="progress-text">키워드 분석 중...</div>
+          <div class="progress-sub">네이버 검색광고 데이터 조회 중</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="trend-result" id="trendResult">
+      <div class="stats-grid" id="trendStats"></div>
+      <div class="chart-card">
+        <div class="chart-title" id="chartTitle">월간 검색량 추이</div>
+        <div class="chart-wrap"><canvas id="trendChart"></canvas></div>
+      </div>
+      <div class="keyword-table-wrap">
+        <div class="section-head">
+          <span class="section-title">연관 키워드 검색량</span>
+          <span class="section-sub" id="trendTableSub"></span>
+        </div>
+        <table class="kw-table" id="kwTable">
+          <thead>
+            <tr>
+              <th>키워드</th>
+              <th>월간 PC</th>
+              <th>월간 모바일</th>
+              <th>합계</th>
+              <th>경쟁도</th>
+            </tr>
+          </thead>
+          <tbody id="kwTableBody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+let trendChartInstance = null;
+
+// 탭 전환
+function switchTab(tab) {
+  document.querySelectorAll('.tab').forEach((t, i) => t.classList.toggle('active', (tab==='rank'&&i===0)||(tab==='trend'&&i===1)));
+  document.getElementById('tab-rank').classList.toggle('active', tab==='rank');
+  document.getElementById('tab-trend').classList.toggle('active', tab==='trend');
+}
+
+// ==================== 순위 확인 ====================
+async function startRankSearch() {
+  const keyword = document.getElementById('keyword').value.trim();
+  const productName = document.getElementById('productName').value.trim();
+  const maxRank = parseInt(document.getElementById('maxRank').value);
+  const sortBy = document.getElementById('sortBy').value;
+  const filterType = document.getElementById('filterType').value;
+
+  if (!keyword) { showRankError('검색 키워드를 입력해주세요.'); return; }
+  if (!productName) { showRankError('찾을 상품명을 입력해주세요.'); return; }
+
+  hideRankError();
+  document.getElementById('rankProgress').classList.add('active');
+  document.getElementById('rankResult').classList.remove('active');
+  document.getElementById('btnRank').disabled = true;
+
+  const totalPages = Math.ceil(maxRank / 100);
+  const allItems = [];
+  let foundItem = null, foundRank = null;
+
+  try {
+    for (let page = 0; page < totalPages; page++) {
+      const start = page * 100 + 1;
+      const display = Math.min(100, maxRank - page * 100);
+
+      document.getElementById('progressText').textContent = `${start}~${start+display-1}위 검색 중...`;
+      document.getElementById('progressSub').textContent = `${page+1} / ${totalPages} 페이지`;
+      document.getElementById('progressBar').style.width = ((page/totalPages)*100)+'%';
+
+      const stepsEl = document.getElementById('progressSteps');
+      stepsEl.innerHTML = Array.from({length:totalPages},(_,i) => {
+        const cls = i<page?'done':i===page?'active':'';
+        return `<span class="step-chip ${cls}">${i*100+1}~${(i+1)*100}위</span>`;
+      }).join('');
+
+      const params = new URLSearchParams({ query: keyword, start, display, sort: sortBy, ...(filterType?{filter:filterType}:{}) });
+      const res = await fetch(`/naver-search?${params}`);
+      const data = await res.json();
+
+      (data.items||[]).forEach((item, idx) => {
+        const rank = start + idx;
+        const cleanTitle = item.title.replace(/<[^>]*>/g,'');
+        allItems.push({ rank, name: cleanTitle, price: parseInt(item.lprice||0).toLocaleString()+'원', mall: item.mallName||'-', reviewCount: item.reviewCount||0, category: item.category1||'' });
+        const norm = s => s.toLowerCase().replace(/\s/g,'');
+        if (!foundItem && norm(cleanTitle).includes(norm(productName))) {
+          foundItem = allItems[allItems.length-1];
+          foundRank = rank;
+        }
+      });
+      await sleep(120);
+    }
+
+    document.getElementById('progressBar').style.width = '100%';
+    document.getElementById('progressText').textContent = '분석 완료!';
+    await sleep(400);
+    document.getElementById('rankProgress').classList.remove('active');
+    renderRankResult(keyword, productName, maxRank, foundItem, foundRank, allItems);
+
+  } catch(e) {
+    document.getElementById('rankProgress').classList.remove('active');
+    showRankError('오류: ' + e.message);
+  } finally {
+    document.getElementById('btnRank').disabled = false;
+  }
+}
+
+function renderRankResult(keyword, productName, maxRank, foundItem, foundRank, allItems) {
+  const badge = foundItem ? `<span class="rank-badge hit">🎯 ${foundRank}위 발견</span>` : `<span class="rank-badge miss">${maxRank}위 이내 없음</span>`;
+  const body = foundItem
+    ? `<div><div class="big-num">${foundRank}</div><div class="big-num-sub">/ ${maxRank}위 이내</div></div>
+       <div class="prod-detail"><div class="prod-name-big">${foundItem.name}</div>
+       <div class="prod-tags"><span class="prod-tag price">${foundItem.price}</span><span class="prod-tag">${foundItem.mall}</span>${foundItem.reviewCount>0?`<span class="prod-tag">리뷰 ${parseInt(foundItem.reviewCount).toLocaleString()}개</span>`:''}</div></div>`
+    : `<div class="no-result-body"><div class="no-result-icon">📭</div><div class="no-result-title">"${productName}" 상품을 찾지 못했습니다</div><div class="no-result-desc">${maxRank}위 이내에 없습니다</div></div>`;
+
+  document.getElementById('resultSummary').innerHTML = `
+    <div class="summary-head"><span class="summary-kw">키워드: <strong>${keyword}</strong> · 상품: <strong>${productName}</strong></span>${badge}</div>
+    <div class="summary-body">${body}</div>`;
+
+  let displayItems = allItems.slice(0,20);
+  if (foundItem && foundRank > 20) displayItems.push(foundItem);
+
+  const rows = displayItems.map(item => {
+    const isMe = foundItem && item.rank === foundRank;
+    const sep = (foundItem && foundRank>20 && item.rank===foundItem.rank) ? `<tr><td colspan="4" style="text-align:center;font-size:11px;color:var(--text3);padding:6px;">···· ${foundRank-20}개 항목 생략 ····</td></tr>` : '';
+    const rc = item.rank===1?'rank-num r1':item.rank===2?'rank-num r2':item.rank===3?'rank-num r3':isMe?'rank-num me':'rank-num';
+    return `${sep}<tr class="${isMe?'my-row':''}"><td><span class="${rc}">${item.rank}</span></td><td>${item.name}${isMe?'<span class="me-label">내 상품</span>':''}</td><td style="font-size:12px;color:var(--text2)">${item.mall}</td><td class="price-cell">${item.price}</td></tr>`;
+  }).join('');
+
+  document.getElementById('topListSection').innerHTML = `
+    <div class="section-head"><span class="section-title">상위 목록</span><span class="section-sub">총 ${allItems.length}개 조회</span></div>
+    <table class="top-table"><thead><tr><th style="width:50px">순위</th><th>상품명</th><th style="width:110px">판매처</th><th style="width:90px">최저가</th></tr></thead><tbody>${rows}</tbody></table>`;
+
+  document.getElementById('resultFooter').textContent = `조회: ${new Date().toLocaleString('ko-KR')}`;
+  document.getElementById('rankResult').classList.add('active');
+}
+
+// ==================== 트렌드 ====================
+async function startTrendSearch() {
+  const keyword = document.getElementById('trendKeyword').value.trim();
+  if (!keyword) { showTrendError('키워드를 입력해주세요.'); return; }
+
+  hideTrendError();
+  document.getElementById('trendProgress').classList.add('active');
+  document.getElementById('trendResult').classList.remove('active');
+  document.getElementById('btnTrend').disabled = true;
+
+  try {
+    const res = await fetch(`/naver-trend?keyword=${encodeURIComponent(keyword)}`);
+    const data = await res.json();
+
+    if (data.errorMessage) throw new Error(data.errorMessage);
+
+    document.getElementById('trendProgress').classList.remove('active');
+    renderTrendResult(keyword, data);
+
+  } catch(e) {
+    document.getElementById('trendProgress').classList.remove('active');
+    showTrendError('오류: ' + e.message);
+  } finally {
+    document.getElementById('btnTrend').disabled = false;
+  }
+}
+
+function renderTrendResult(keyword, data) {
+  const keywords = (data.keywordList || []).filter(k => k.monthlyPcQcCnt !== undefined);
+  if (!keywords.length) { showTrendError('검색량 데이터가 없습니다.'); return; }
+
+  // 메인 키워드 찾기
+  const main = keywords.find(k => k.relKeyword === keyword) || keywords[0];
+  const pcCnt = parseInt(main.monthlyPcQcCnt) || 0;
+  const mobCnt = parseInt(main.monthlyMobileQcCnt) || 0;
+  const total = pcCnt + mobCnt;
+  const mobRatio = total > 0 ? Math.round((mobCnt/total)*100) : 0;
+
+  // 통계 카드
+  document.getElementById('trendStats').innerHTML = `
+    <div class="stat-card">
+      <div class="stat-label">월간 총 검색량</div>
+      <div class="stat-value green">${total.toLocaleString()}</div>
+      <div class="stat-sub">PC + 모바일</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">모바일 비율</div>
+      <div class="stat-value blue">${mobRatio}%</div>
+      <div class="stat-sub">모바일 ${mobCnt.toLocaleString()}건</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">PC 검색량</div>
+      <div class="stat-value">${pcCnt.toLocaleString()}</div>
+      <div class="stat-sub">월간 기준</div>
+    </div>`;
+
+  // 차트 (월별 추이 - monthlyQcCnt 데이터 활용)
+  const chartLabels = ['1개월전','2개월전','3개월전','4개월전','5개월전','6개월전','7개월전','8개월전','9개월전','10개월전','11개월전','12개월전'].reverse();
+  
+  let pcData = [], mobData = [];
+  if (main.monthlyQcCnt && main.monthlyQcCnt.length > 0) {
+    main.monthlyQcCnt.forEach(m => {
+      pcData.push(parseInt(m.pc) || 0);
+      mobData.push(parseInt(m.mobile) || 0);
+    });
+  } else {
+    // 데이터 없으면 현재 수치로 추정
+    pcData = Array(12).fill(pcCnt);
+    mobData = Array(12).fill(mobCnt);
+  }
+
+  document.getElementById('chartTitle').textContent = `"${keyword}" 월간 검색량 추이`;
+
+  if (trendChartInstance) trendChartInstance.destroy();
+  const ctx = document.getElementById('trendChart').getContext('2d');
+  trendChartInstance = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: chartLabels.slice(-pcData.length),
+      datasets: [
+        { label: '모바일', data: mobData, borderColor: '#03C75A', backgroundColor: 'rgba(3,199,90,0.08)', tension: 0.4, fill: true, pointRadius: 4 },
+        { label: 'PC', data: pcData, borderColor: '#1976D2', backgroundColor: 'rgba(25,118,210,0.05)', tension: 0.4, fill: true, pointRadius: 4 }
+      ]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { position: 'top' } },
+      scales: {
+        y: { beginAtZero: true, ticks: { callback: v => v.toLocaleString() } }
+      }
+    }
+  });
+
+  // 연관 키워드 테이블
+  const sorted = [...keywords].sort((a,b) => (parseInt(b.monthlyMobileQcCnt)||0)+(parseInt(b.monthlyPcQcCnt)||0) - (parseInt(a.monthlyMobileQcCnt)||0)-(parseInt(a.monthlyPcQcCnt)||0));
+  const maxTotal = sorted[0] ? (parseInt(sorted[0].monthlyPcQcCnt)||0)+(parseInt(sorted[0].monthlyMobileQcCnt)||0) : 1;
+
+  document.getElementById('kwTableBody').innerHTML = sorted.slice(0,20).map(k => {
+    const pc = parseInt(k.monthlyPcQcCnt)||0;
+    const mob = parseInt(k.monthlyMobileQcCnt)||0;
+    const tot = pc + mob;
+    const pct = Math.round((tot/maxTotal)*100);
+    const compLabel = k.compIdx === 'high' ? '높음' : k.compIdx === 'mid' ? '중간' : k.compIdx === 'low' ? '낮음' : '-';
+    const compColor = k.compIdx === 'high' ? '#D84315' : k.compIdx === 'mid' ? '#F59E0B' : '#03C75A';
+    return `<tr>
+      <td style="font-weight:500">${k.relKeyword}</td>
+      <td>${pc.toLocaleString()}</td>
+      <td>${mob.toLocaleString()}</td>
+      <td style="font-weight:700">${tot.toLocaleString()}</td>
+      <td><div class="comp-bar"><div class="comp-bar-inner" style="width:${pct}%;max-width:80px;background:${compColor}"></div><span class="comp-label" style="color:${compColor}">${compLabel}</span></div></td>
+    </tr>`;
+  }).join('');
+
+  document.getElementById('trendTableSub').textContent = `${keyword} 연관 키워드 ${Math.min(sorted.length,20)}개`;
+  document.getElementById('trendResult').classList.add('active');
+}
+
+// 유틸
+function showRankError(msg) { const el=document.getElementById('rankError'); el.textContent=msg; el.classList.add('active'); }
+function hideRankError() { document.getElementById('rankError').classList.remove('active'); }
+function showTrendError(msg) { const el=document.getElementById('trendError'); el.textContent=msg; el.classList.add('active'); }
+function hideTrendError() { document.getElementById('trendError').classList.remove('active'); }
+function sleep(ms) { return new Promise(r=>setTimeout(r,ms)); }
+
+['keyword','productName'].forEach(id => {
+  document.getElementById(id).addEventListener('keydown', e => { if(e.key==='Enter') startRankSearch(); });
+});
+document.getElementById('trendKeyword').addEventListener('keydown', e => { if(e.key==='Enter') startTrendSearch(); });
+</script>
+</body>
+</html>

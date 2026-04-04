@@ -1,0 +1,6 @@
+{
+  "rewrites": [
+    { "source": "/naver-search", "destination": "/api/search" },
+    { "source": "/naver-trend", "destination": "/api/trend" }
+  ]
+}
