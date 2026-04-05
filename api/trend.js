@@ -23,6 +23,7 @@ module.exports = async (req, res) => {
     const data = await new Promise((resolve, reject) => {
       const options = {
         hostname: 'api.naver.com',
+        port: 443,
         path: `${path}?${queryString}`,
         method: 'GET',
         headers: {
@@ -33,25 +34,33 @@ module.exports = async (req, res) => {
           'X-Signature': signature,
         }
       };
-      const req2 = https.request(options, (r) => {
-        let body = '';
-        r.on('data', chunk => body += chunk);
-        r.on('end', () => resolve({ status: r.statusCode, body }));
-      });
-      req2.on('error', reject);
-      req2.end();
+
+      function doRequest(opts) {
+        https.request(opts, (r) => {
+          // 리다이렉트 처리
+          if (r.statusCode === 301 || r.statusCode === 302 || r.statusCode === 308) {
+            const location = r.headers['location'];
+            const newUrl = new URL(location);
+            const newOpts = {
+              hostname: newUrl.hostname,
+              port: 443,
+              path: newUrl.pathname + newUrl.search,
+              method: 'GET',
+              headers: opts.headers
+            };
+            doRequest(newOpts);
+            return;
+          }
+          let body = '';
+          r.on('data', chunk => body += chunk);
+          r.on('end', () => resolve({ status: r.statusCode, body }));
+        }).on('error', reject).end();
+      }
+
+      doRequest(options);
     });
 
-    // 디버깅: 실제 응답 그대로 반환
-    res.status(200).json({ 
-      status: data.status, 
-      body: data.body,
-      debug: {
-        customerId: customerId ? '설정됨' : '없음',
-        accessLicense: accessLicense ? '설정됨' : '없음',
-        secretKey: secretKey ? '설정됨' : '없음',
-      }
-    });
+    res.status(data.status).send(data.body);
   } catch (e) {
     res.status(500).json({ errorMessage: e.message });
   }
