@@ -16,10 +16,11 @@ module.exports = async (req, res) => {
     const timestamp = Date.now().toString();
     const method = 'GET';
     const path = '/keywordstool';
-    const message = timestamp + '.' + method + '.' + path;
-    const secretKeyDecoded = Buffer.from(secretKey, 'base64');
-    const signature = crypto.createHmac('sha256', secretKeyDecoded)
-      .update(message, 'utf8')
+    const message = `${timestamp}.${method}.${path}`;
+    
+    // Secret Key를 UTF-8로 인코딩해서 서명 생성
+    const signature = crypto.createHmac('sha256', Buffer.from(secretKey, 'utf-8'))
+      .update(Buffer.from(message, 'utf-8'))
       .digest('base64');
 
     const queryString = `hintKeywords=${encodeURIComponent(keyword)}&showDetail=1`;
@@ -41,17 +42,9 @@ module.exports = async (req, res) => {
 
       function doRequest(opts) {
         https.request(opts, (r) => {
-          if (r.statusCode === 301 || r.statusCode === 302 || r.statusCode === 308) {
-            const location = r.headers['location'];
-            const newUrl = new URL(location);
-            const newOpts = {
-              hostname: newUrl.hostname,
-              port: 443,
-              path: newUrl.pathname + newUrl.search,
-              method: 'GET',
-              headers: opts.headers
-            };
-            doRequest(newOpts);
+          if ([301,302,308].includes(r.statusCode)) {
+            const newUrl = new URL(r.headers['location']);
+            doRequest({ hostname: newUrl.hostname, port: 443, path: newUrl.pathname + newUrl.search, method: 'GET', headers: opts.headers });
             return;
           }
           let body = '';
