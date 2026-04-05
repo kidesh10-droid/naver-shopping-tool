@@ -34,7 +34,7 @@ module.exports = async (req, res) => {
           'Content-Type': 'application/json; charset=UTF-8',
           'X-Timestamp': timestamp,
           'X-API-KEY': accessLicense,
-          'X-Customer': customerId,
+'X-Customer': parseInt(customerId),
           'X-Signature': signature,
         }
       };
