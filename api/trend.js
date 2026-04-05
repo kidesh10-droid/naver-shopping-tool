@@ -5,12 +5,11 @@ module.exports = async (req, res) => {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Content-Type', 'application/json');
 
-  const customerId = process.env.NAVER_AD_CUSTOMER_ID;
+  const customerId = '1095102';
   const accessLicense = process.env.NAVER_AD_ACCESS_LICENSE;
   const secretKey = process.env.NAVER_AD_SECRET_KEY;
 
   const { keyword } = req.query;
-  console.log('customerId raw:', customerId, typeof customerId);
   if (!keyword) return res.status(400).json({ errorMessage: '키워드를 입력해주세요.' });
 
   try {
@@ -18,11 +17,7 @@ module.exports = async (req, res) => {
     const method = 'GET';
     const path = '/keywordstool';
     const message = `${timestamp}.${method}.${path}`;
-    
-    // Buffer로 처리
-    const secretKeyBuffer = Buffer.from(secretKey, 'utf8');
-    const signature = crypto.createHmac('sha256', secretKeyBuffer).update(message).digest('base64');
-    
+    const signature = crypto.createHmac('sha256', Buffer.from(secretKey, 'utf-8')).update(Buffer.from(message, 'utf-8')).digest('base64');
     const queryString = `hintKeywords=${encodeURIComponent(keyword)}&showDetail=1`;
 
     const data = await new Promise((resolve, reject) => {
@@ -35,7 +30,7 @@ module.exports = async (req, res) => {
           'Content-Type': 'application/json; charset=UTF-8',
           'X-Timestamp': timestamp,
           'X-API-KEY': accessLicense,
-'X-Customer': '1095102',
+          'X-Customer': customerId,
           'X-Signature': signature,
         }
       };
