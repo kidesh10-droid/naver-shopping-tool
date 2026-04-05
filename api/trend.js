@@ -5,7 +5,7 @@ module.exports = async (req, res) => {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Content-Type', 'application/json');
 
-  const customerId = '1095102';
+const customerId = '2905718';
   const accessLicense = process.env.NAVER_AD_ACCESS_LICENSE;
   const secretKey = process.env.NAVER_AD_SECRET_KEY;
 
