@@ -10,6 +10,7 @@ module.exports = async (req, res) => {
   const secretKey = process.env.NAVER_AD_SECRET_KEY;
 
   const { keyword } = req.query;
+  console.log('customerId raw:', customerId, typeof customerId);
   if (!keyword) return res.status(400).json({ errorMessage: '키워드를 입력해주세요.' });
 
   try {
