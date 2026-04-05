@@ -16,8 +16,12 @@ module.exports = async (req, res) => {
     const timestamp = Date.now().toString();
     const method = 'GET';
     const path = '/keywordstool';
-    const message = timestamp + '.' + method + '.' + path;
-    const signature = crypto.createHmac('sha256', secretKey).update(message).digest('base64');
+    const message = `${timestamp}.${method}.${path}`;
+    
+    // Buffer로 처리
+    const secretKeyBuffer = Buffer.from(secretKey, 'utf8');
+    const signature = crypto.createHmac('sha256', secretKeyBuffer).update(message).digest('base64');
+    
     const queryString = `hintKeywords=${encodeURIComponent(keyword)}&showDetail=1`;
 
     const data = await new Promise((resolve, reject) => {
@@ -30,14 +34,13 @@ module.exports = async (req, res) => {
           'Content-Type': 'application/json; charset=UTF-8',
           'X-Timestamp': timestamp,
           'X-API-KEY': accessLicense,
-          'X-Customer': String(customerId),
+          'X-Customer': customerId,
           'X-Signature': signature,
         }
       };
 
       function doRequest(opts) {
         https.request(opts, (r) => {
-          // 리다이렉트 처리
           if (r.statusCode === 301 || r.statusCode === 302 || r.statusCode === 308) {
             const location = r.headers['location'];
             const newUrl = new URL(location);
