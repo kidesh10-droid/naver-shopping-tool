@@ -16,12 +16,12 @@ module.exports = async (req, res) => {
     const timestamp = Date.now().toString();
     const method = 'GET';
     const path = '/keywordstool';
-    const message = `${timestamp}.${method}.${path}`;
-    
-    // Secret Key를 Base64 디코딩 후 사용
+    const message = timestamp + '.' + method + '.' + path;
     const secretKeyDecoded = Buffer.from(secretKey, 'base64');
-    const signature = crypto.createHmac('sha256', secretKeyDecoded).update(message).digest('base64');
-    
+    const signature = crypto.createHmac('sha256', secretKeyDecoded)
+      .update(message, 'utf8')
+      .digest('base64');
+
     const queryString = `hintKeywords=${encodeURIComponent(keyword)}&showDetail=1`;
 
     const data = await new Promise((resolve, reject) => {
