@@ -18,7 +18,6 @@ module.exports = async (req, res) => {
     const path = '/keywordstool';
     const message = timestamp + '.' + method + '.' + path;
     const signature = crypto.createHmac('sha256', secretKey).update(message).digest('base64');
-
     const queryString = `hintKeywords=${encodeURIComponent(keyword)}&showDetail=1`;
 
     const data = await new Promise((resolve, reject) => {
@@ -43,11 +42,16 @@ module.exports = async (req, res) => {
       req2.end();
     });
 
-    if (!data.body) {
-      return res.status(500).json({ errorMessage: '빈 응답. 광고 API 키를 확인해주세요.' });
-    }
-
-    res.status(data.status).send(data.body);
+    // 디버깅: 실제 응답 그대로 반환
+    res.status(200).json({ 
+      status: data.status, 
+      body: data.body,
+      debug: {
+        customerId: customerId ? '설정됨' : '없음',
+        accessLicense: accessLicense ? '설정됨' : '없음',
+        secretKey: secretKey ? '설정됨' : '없음',
+      }
+    });
   } catch (e) {
     res.status(500).json({ errorMessage: e.message });
   }
